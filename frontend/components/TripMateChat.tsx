@@ -11,10 +11,11 @@ interface TripMateChatProps {
 
 interface Message {
   id: number
-  type: 'user' | 'assistant'
+  type: 'user' | 'assistant' | 'typing'
   content: string
   timestamp: string
   edit_applied?: boolean
+  isTyping?: boolean
 }
 
 export default function TripMateChat({ session, itinerary, onBackToResults }: TripMateChatProps) {
@@ -59,6 +60,16 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
     }
     setMessages(prev => [...prev, newUserMessage])
 
+    // Add typing indicator
+    const typingMessage: Message = {
+      id: Date.now() + 0.5,
+      type: 'typing',
+      content: 'TripMate is thinking...',
+      timestamp: new Date().toISOString(),
+      isTyping: true
+    }
+    setMessages(prev => [...prev, typingMessage])
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send/`, {
         method: 'POST',
@@ -77,7 +88,10 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
 
       const data = await response.json()
       
-      // Add assistant response
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => msg.type !== 'typing'))
+      
+      // Add assistant response with animation
       const assistantMessage: Message = {
         id: Date.now() + 1,
         type: 'assistant',
@@ -90,10 +104,18 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
       // Update itinerary if changes were made
       if (data.edit_applied && data.updated_itinerary) {
         setUpdatedItinerary(data.updated_itinerary)
+        // Notify parent component of itinerary update
+        if (onBackToResults) {
+          // You can add a callback here to update the parent component
+        }
       }
 
     } catch (error) {
       console.error('Error sending message:', error)
+      
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => msg.type !== 'typing'))
+      
       const errorMessage: Message = {
         id: Date.now() + 1,
         type: 'assistant',
@@ -141,7 +163,7 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} message-enter`}
             >
               <div className={`flex items-start space-x-3 max-w-xs lg:max-w-md ${
                 message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
@@ -149,10 +171,16 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
                 <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                   message.type === 'user' 
                     ? 'bg-primary-600 text-white' 
+                    : message.type === 'typing'
+                    ? 'bg-blue-100 text-blue-600'
                     : 'bg-gray-100 text-gray-600'
                 }`}>
                   {message.type === 'user' ? (
                     <User className="h-4 w-4" />
+                  ) : message.type === 'typing' ? (
+                    <div className="animate-pulse">
+                      <Bot className="h-4 w-4" />
+                    </div>
                   ) : (
                     <Bot className="h-4 w-4" />
                   )}
@@ -161,9 +189,18 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
                 <div className={`px-4 py-3 rounded-lg ${
                   message.type === 'user'
                     ? 'bg-primary-600 text-white'
+                    : message.type === 'typing'
+                    ? 'bg-blue-50 text-blue-900 border border-blue-200'
                     : 'bg-gray-100 text-gray-900'
                 }`}>
-                  <p className="text-sm">{message.content}</p>
+                  {message.type === 'typing' ? (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-sm">{message.content}</span>
+                      <div className="loading-dots"></div>
+                    </div>
+                  ) : (
+                    <p className="text-sm">{message.content}</p>
+                  )}
                   <div className={`flex items-center justify-between mt-2 text-xs ${
                     message.type === 'user' ? 'text-primary-100' : 'text-gray-500'
                   }`}>
@@ -179,21 +216,7 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
             </div>
           ))}
           
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex items-start space-x-3 max-w-xs lg:max-w-md">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center">
-                  <Bot className="h-4 w-4" />
-                </div>
-                <div className="px-4 py-3 rounded-lg bg-gray-100 text-gray-900">
-                  <div className="flex items-center space-x-1">
-                    <span className="text-sm">TripMate is thinking</span>
-                    <div className="loading-dots"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Typing indicator is now handled in the messages array */}
           
           <div ref={messagesEndRef} />
         </div>

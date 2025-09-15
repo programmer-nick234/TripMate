@@ -8,11 +8,28 @@ interface ItineraryResultsProps {
   itinerary: any
   onStartChat: (session: any) => void
   onBackToWizard: () => void
+  onItineraryUpdate?: (updatedItinerary: any) => void
 }
 
-export default function ItineraryResults({ itinerary, onStartChat, onBackToWizard }: ItineraryResultsProps) {
+export default function ItineraryResults({ itinerary, onStartChat, onBackToWizard, onItineraryUpdate }: ItineraryResultsProps) {
   const [activeTab, setActiveTab] = useState<'schedule' | 'map'>('schedule')
   const [isStartingChat, setIsStartingChat] = useState(false)
+  const [currentItinerary, setCurrentItinerary] = useState(itinerary)
+  const [hasUpdates, setHasUpdates] = useState(false)
+
+  // Handle itinerary updates from chat
+  const handleItineraryUpdate = (updatedItinerary: any) => {
+    setCurrentItinerary(updatedItinerary)
+    setHasUpdates(true)
+    if (onItineraryUpdate) {
+      onItineraryUpdate(updatedItinerary)
+    }
+  }
+
+  // Reset updates indicator
+  const resetUpdates = () => {
+    setHasUpdates(false)
+  }
 
   const handleStartChat = async () => {
     setIsStartingChat(true)
@@ -85,19 +102,27 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
         </div>
 
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{itinerary.trip_summary}</h1>
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <h1 className="text-3xl font-bold text-gray-900">{currentItinerary.trip_summary}</h1>
+            {hasUpdates && (
+              <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span>Updated</span>
+              </div>
+            )}
+          </div>
           <div className="flex justify-center items-center space-x-6 text-sm text-gray-600">
             <div className="flex items-center space-x-1">
               <DollarSign className="h-4 w-4" />
-              <span>${itinerary.total_estimated_cost}</span>
+              <span>${currentItinerary.total_estimated_cost}</span>
             </div>
             <div className="flex items-center space-x-1">
               <Calendar className="h-4 w-4" />
-              <span>{itinerary.days.length} days</span>
+              <span>{currentItinerary.days.length} days</span>
             </div>
             <div className="flex items-center space-x-1">
               <MapPin className="h-4 w-4" />
-              <span>{itinerary.days[0]?.date} - {itinerary.days[itinerary.days.length - 1]?.date}</span>
+              <span>{currentItinerary.days[0]?.date} - {currentItinerary.days[currentItinerary.days.length - 1]?.date}</span>
             </div>
           </div>
         </div>
@@ -135,7 +160,7 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
         <div className="p-6">
           {activeTab === 'schedule' && (
             <div className="space-y-6">
-              {itinerary.days.map((day: any, dayIndex: number) => (
+              {currentItinerary.days.map((day: any, dayIndex: number) => (
                 <div key={dayIndex} className="border border-gray-200 rounded-lg p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-semibold text-gray-900">
@@ -203,13 +228,13 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
           )}
 
           {activeTab === 'map' && (
-            <ItineraryMap itinerary={itinerary} />
+            <ItineraryMap itinerary={currentItinerary} />
           )}
         </div>
       </div>
 
       {/* Warnings */}
-      {itinerary.warnings && itinerary.warnings.length > 0 && (
+      {currentItinerary.warnings && currentItinerary.warnings.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex">
             <Star className="h-5 w-5 text-yellow-400 mt-0.5" />
@@ -217,7 +242,7 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
               <h3 className="text-sm font-medium text-yellow-800">Important Notes</h3>
               <div className="mt-2 text-sm text-yellow-700">
                 <ul className="list-disc list-inside space-y-1">
-                  {itinerary.warnings.map((warning: string, index: number) => (
+                  {currentItinerary.warnings.map((warning: string, index: number) => (
                     <li key={index}>{warning}</li>
                   ))}
                 </ul>

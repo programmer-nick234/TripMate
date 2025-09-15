@@ -11,8 +11,31 @@ class TripMateService:
     """Conversational AI service for itinerary editing"""
     
     def __init__(self):
-        self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        # Initialize OpenAI client with proper error handling
+        self.openai_client = None
         self.plan_engine = PlanEngine()
+        
+        # Try to initialize OpenAI client
+        try:
+            # Check if API key is available
+            api_key = getattr(settings, 'OPENAI_API_KEY', None)
+            if not api_key:
+                # Try to load from environment
+                import os
+                api_key = os.getenv('OPENAI_API_KEY')
+            
+            if api_key and api_key.strip():
+                # Initialize with older OpenAI version
+                self.openai_client = openai
+                openai.api_key = api_key
+                print("✅ OpenAI client initialized successfully")
+            else:
+                print("⚠️  OPENAI_API_KEY not found, using fallback responses only")
+                self.openai_client = None
+        except Exception as e:
+            print(f"⚠️  Failed to initialize OpenAI client: {e}")
+            print("   Using keyword-based fallback responses")
+            self.openai_client = None
     
     def process_message(self, message, itinerary_data, session_history=None):
         """Process user message and return TripMate response"""
@@ -32,42 +55,105 @@ class TripMateService:
     def _analyze_intent(self, message, itinerary_data):
         """Analyze user message to determine intent"""
         
-        prompt = f"""
-        Analyze this user message about their travel itinerary and determine the intent:
+        # Simple keyword-based intent recognition as fallback
+        message_lower = message.lower()
         
-        User message: "{message}"
+        # Check for edit requests
+        edit_keywords = ['add', 'remove', 'change', 'modify', 'update', 'replace', 'move', 'reschedule']
+        if any(keyword in message_lower for keyword in edit_keywords):
+            return {
+                "type": "edit_request",
+                "confidence": 0.8,
+                "details": {
+                    "edit_type": "add" if "add" in message_lower else "modify",
+                    "target_day": 1,
+                    "target_activity": "",
+                    "new_content": message,
+                    "question_type": "general"
+                }
+            }
         
-        Current itinerary summary: {itinerary_data.get('trip_summary', 'No summary available')}
+        # Check for questions
+        question_keywords = ['what', 'how', 'when', 'where', 'why', 'cost', 'price', 'time', 'duration']
+        if any(keyword in message_lower for keyword in question_keywords):
+            return {
+                "type": "question",
+                "confidence": 0.7,
+                "details": {
+                    "edit_type": "",
+                    "target_day": 0,
+                    "target_activity": "",
+                    "new_content": "",
+                    "question_type": "general"
+                }
+            }
         
-        Respond with JSON only:
-        {{
-            "type": "edit_request|question|general_chat|unknown",
-            "confidence": 0.0-1.0,
-            "details": {{
-                "edit_type": "add|remove|modify|move|reschedule",
-                "target_day": 1-7,
-                "target_activity": "activity name or index",
-                "new_content": "what they want to change to",
-                "question_type": "cost|timing|location|general"
+        # Check for general chat
+        greeting_keywords = ['hello', 'hi', 'hey', 'thanks', 'thank you', 'good', 'great']
+        if any(keyword in message_lower for keyword in greeting_keywords):
+            return {
+                "type": "general_chat",
+                "confidence": 0.6,
+                "details": {
+                    "edit_type": "",
+                    "target_day": 0,
+                    "target_activity": "",
+                    "new_content": "",
+                    "question_type": "general"
+                }
+            }
+        
+        # Try OpenAI if available
+        if self.openai_client:
+            prompt = f"""
+            Analyze this user message about their travel itinerary and determine the intent:
+            
+            User message: "{message}"
+            
+            Current itinerary summary: {itinerary_data.get('trip_summary', 'No summary available')}
+            
+            Respond with JSON only:
+            {{
+                "type": "edit_request|question|general_chat|unknown",
+                "confidence": 0.0-1.0,
+                "details": {{
+                    "edit_type": "add|remove|modify|move|reschedule",
+                    "target_day": 1-7,
+                    "target_activity": "activity name or index",
+                    "new_content": "what they want to change to",
+                    "question_type": "cost|timing|location|general"
+                }}
             }}
-        }}
-        """
+            """
+            
+            try:
+                response = self.openai_client.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3,
+                    max_tokens=200
+                )
+                
+                content = response.choices[0].message.content.strip()
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0]
+                
+                return json.loads(content)
+            except Exception as e:
+                print(f"OpenAI API error: {e}")
         
-        try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=200
-            )
-            
-            content = response.choices[0].message.content.strip()
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            
-            return json.loads(content)
-        except:
-            return {"type": "unknown", "confidence": 0.0, "details": {}}
+        # Default fallback
+        return {
+            "type": "general_chat",
+            "confidence": 0.5,
+            "details": {
+                "edit_type": "",
+                "target_day": 0,
+                "target_activity": "",
+                "new_content": "",
+                "question_type": "general"
+            }
+        }
     
     def _handle_edit_request(self, message, itinerary_data, intent):
         """Handle requests to edit the itinerary"""
@@ -98,41 +184,75 @@ class TripMateService:
     def _handle_question(self, message, itinerary_data):
         """Handle questions about the itinerary"""
         
-        prompt = f"""
-        You are TripMate, a friendly travel assistant. Answer this question about the itinerary:
+        message_lower = message.lower()
         
-        Question: "{message}"
+        # Handle cost-related questions
+        if any(word in message_lower for word in ['cost', 'price', 'budget', 'expensive', 'cheap']):
+            total_cost = itinerary_data.get('total_estimated_cost', 0)
+            return {
+                'response': f"The total estimated cost for your trip is ${total_cost}. This includes all planned activities and expenses.",
+                'updated_itinerary': itinerary_data,
+                'edit_applied': False
+            }
         
-        Itinerary data: {json.dumps(itinerary_data, indent=2)}
+        # Handle time-related questions
+        if any(word in message_lower for word in ['time', 'duration', 'how long', 'when']):
+            days = len(itinerary_data.get('days', []))
+            return {
+                'response': f"Your trip is planned for {days} days. Each day has a detailed schedule with specific times for activities.",
+                'updated_itinerary': itinerary_data,
+                'edit_applied': False
+            }
         
-        Rules:
-        - Be helpful and conversational
-        - Keep responses under 3 sentences
-        - Use simple language
-        - Be specific about costs, times, and locations when available
-        - If you don't know something, say so politely
-        """
+        # Handle location questions
+        if any(word in message_lower for word in ['where', 'location', 'place', 'address']):
+            trip_summary = itinerary_data.get('trip_summary', 'No summary available')
+            return {
+                'response': f"Based on your itinerary: {trip_summary}. All locations are marked on the map for easy navigation.",
+                'updated_itinerary': itinerary_data,
+                'edit_applied': False
+            }
         
-        try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-                max_tokens=150
-            )
+        # Try OpenAI for complex questions
+        if self.openai_client:
+            prompt = f"""
+            You are TripMate, a friendly travel assistant. Answer this question about the itinerary:
             
-            content = response.choices[0].message.content.strip()
-            return {
-                'response': content,
-                'updated_itinerary': itinerary_data,
-                'edit_applied': False
-            }
-        except:
-            return {
-                'response': "I'd be happy to help with your itinerary! Could you be more specific about what you'd like to know?",
-                'updated_itinerary': itinerary_data,
-                'edit_applied': False
-            }
+            Question: "{message}"
+            
+            Itinerary data: {json.dumps(itinerary_data, indent=2)}
+            
+            Rules:
+            - Be helpful and conversational
+            - Keep responses under 3 sentences
+            - Use simple language
+            - Be specific about costs, times, and locations when available
+            - If you don't know something, say so politely
+            """
+            
+            try:
+                response = self.openai_client.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7,
+                    max_tokens=150
+                )
+                
+                content = response.choices[0].message.content.strip()
+                return {
+                    'response': content,
+                    'updated_itinerary': itinerary_data,
+                    'edit_applied': False
+                }
+            except Exception as e:
+                print(f"OpenAI API error: {e}")
+        
+        # Default response
+        return {
+            'response': "I'd be happy to help with your itinerary! Could you be more specific about what you'd like to know?",
+            'updated_itinerary': itinerary_data,
+            'edit_applied': False
+        }
     
     def _handle_general_chat(self, message, itinerary_data):
         """Handle general conversation"""
@@ -181,7 +301,7 @@ class TripMateService:
         """
         
         try:
-            response = self.openai_client.chat.completions.create(
+            response = self.openai_client.ChatCompletion.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,

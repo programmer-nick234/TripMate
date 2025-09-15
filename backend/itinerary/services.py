@@ -12,7 +12,21 @@ class PlanEngine:
     """AI service for generating and maintaining structured itineraries"""
     
     def __init__(self):
-        self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        # Initialize OpenAI client with error handling
+        try:
+            api_key = getattr(settings, 'OPENAI_API_KEY', None)
+            if not api_key:
+                import os
+                api_key = os.getenv('OPENAI_API_KEY')
+            
+            if api_key and api_key.strip():
+                self.openai_client = openai
+                openai.api_key = api_key
+            else:
+                self.openai_client = None
+        except Exception as e:
+            print(f"Warning: Failed to initialize OpenAI client in PlanEngine: {e}")
+            self.openai_client = None
     
     def generate_itinerary(self, request_data):
         """Generate a complete itinerary based on user input"""
@@ -87,12 +101,15 @@ class PlanEngine:
         """
         
         try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-                max_tokens=2000
-            )
+            if self.openai_client:
+                response = self.openai_client.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7,
+                    max_tokens=2000
+                )
+            else:
+                raise Exception("OpenAI client not available")
             
             content = response.choices[0].message.content.strip()
             
