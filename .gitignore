@@ -5,6 +5,13 @@ backend/__pycache__/
 backend/*/__pycache__/
 backend/*/migrations/__pycache__/
 
+# Virtual environments
+venv/
+.venv/
+venv_new/
+ENV/
+env/
+
 # Environment variables
 .env
 .env.local
