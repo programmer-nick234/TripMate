@@ -16,6 +16,8 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
   const [isStartingChat, setIsStartingChat] = useState(false)
   const [currentItinerary, setCurrentItinerary] = useState(itinerary)
   const [hasUpdates, setHasUpdates] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Handle itinerary updates from chat
   const handleItineraryUpdate = (updatedItinerary: any) => {
@@ -33,6 +35,7 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
 
   const handleStartChat = async () => {
     setIsStartingChat(true)
+    setError(null)
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/start/`, {
         method: 'POST',
@@ -45,14 +48,15 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
       })
 
       if (!response.ok) {
-        throw new Error('Failed to start chat session')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to start chat session')
       }
 
       const data = await response.json()
       onStartChat(data)
     } catch (error) {
       console.error('Error starting chat:', error)
-      alert('Failed to start chat. Please try again.')
+      setError(error instanceof Error ? error.message : 'Failed to start chat. Please try again.')
     } finally {
       setIsStartingChat(false)
     }
@@ -91,14 +95,30 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
             <span>Back to Planning</span>
           </button>
           
-          <button
-            onClick={handleStartChat}
-            disabled={isStartingChat}
-            className="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-          >
-            <MessageCircle className="h-5 w-5" />
-            <span>{isStartingChat ? 'Starting Chat...' : 'Chat with TripMate'}</span>
-          </button>
+          <div className="flex items-center space-x-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            <button
+              onClick={handleStartChat}
+              disabled={isStartingChat}
+              className="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              {isStartingChat ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Starting Chat...</span>
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="h-5 w-5" />
+                  <span>Chat with TripMate</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="text-center">

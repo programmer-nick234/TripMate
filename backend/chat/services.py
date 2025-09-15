@@ -49,8 +49,25 @@ class TripMateService:
             return self._handle_question(message, itinerary_data)
         elif intent['type'] == 'general_chat':
             return self._handle_general_chat(message, itinerary_data)
+        elif intent['type'] == 'suggestion_request':
+            return self._handle_suggestion_request(message, itinerary_data)
         else:
             return self._handle_unknown_request(message, itinerary_data)
+    
+    def _handle_suggestion_request(self, message, itinerary_data):
+        """Handle requests for suggestions and optimizations"""
+        suggestions = self._suggest_optimizations(itinerary_data)
+        
+        if suggestions:
+            response = "Here are some suggestions to improve your itinerary:\n\n" + "\n".join(f"• {suggestion}" for suggestion in suggestions)
+        else:
+            response = "Your itinerary looks great! It's well-balanced and should provide an excellent travel experience."
+        
+        return {
+            'response': response,
+            'updated_itinerary': itinerary_data,
+            'edit_applied': False
+        }
     
     def _analyze_intent(self, message, itinerary_data):
         """Analyze user message to determine intent"""
@@ -85,6 +102,21 @@ class TripMateService:
                     "target_activity": "",
                     "new_content": "",
                     "question_type": "general"
+                }
+            }
+        
+        # Check for suggestion requests
+        suggestion_keywords = ['suggest', 'recommend', 'improve', 'optimize', 'better', 'tips', 'advice']
+        if any(keyword in message_lower for keyword in suggestion_keywords):
+            return {
+                "type": "suggestion_request",
+                "confidence": 0.9,
+                "details": {
+                    "edit_type": "",
+                    "target_day": 0,
+                    "target_activity": "",
+                    "new_content": "",
+                    "question_type": "suggestion"
                 }
             }
         
@@ -335,4 +367,45 @@ class TripMateService:
             'reschedule': f"Perfect timing! I've rescheduled that activity for you."
         }
         
+        # Add weather-aware suggestions
+        weather_suggestion = self._get_weather_suggestion(updated_itinerary)
+        if weather_suggestion:
+            base_response = responses.get(edit_type, "I've made that change to your itinerary!")
+            return f"{base_response} {weather_suggestion}"
+        
         return responses.get(edit_type, "I've made that change to your itinerary! Is there anything else you'd like to adjust?")
+    
+    def _get_weather_suggestion(self, itinerary_data):
+        """Get weather-aware suggestions for the itinerary"""
+        # This is a placeholder for weather integration
+        # In a real implementation, you would call a weather API
+        suggestions = [
+            "Don't forget to check the weather forecast before your trip!",
+            "Consider packing layers for changing weather conditions.",
+            "Keep an eye on the weather - it might affect outdoor activities.",
+            "Weather can be unpredictable, so have backup indoor activities ready."
+        ]
+        
+        import random
+        return random.choice(suggestions)
+    
+    def _suggest_optimizations(self, itinerary_data):
+        """Suggest optimizations for the itinerary"""
+        suggestions = []
+        
+        # Check for budget optimization
+        total_cost = itinerary_data.get('total_estimated_cost', 0)
+        if total_cost > 1000:
+            suggestions.append("Consider some budget-friendly alternatives to reduce costs.")
+        
+        # Check for time optimization
+        for day in itinerary_data.get('days', []):
+            if len(day.get('schedule', [])) > 5:
+                suggestions.append("Your day seems packed - consider removing some activities for a more relaxed experience.")
+        
+        # Check for location optimization
+        map_points = itinerary_data.get('map_points', [])
+        if len(map_points) > 10:
+            suggestions.append("You're visiting many locations - consider grouping nearby attractions together.")
+        
+        return suggestions

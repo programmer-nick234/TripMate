@@ -23,6 +23,8 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [updatedItinerary, setUpdatedItinerary] = useState(itinerary)
+  const [error, setError] = useState<string | null>(null)
+  const [isConnected, setIsConnected] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -83,7 +85,8 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
       })
 
       if (!response.ok) {
-        throw new Error('Failed to send message')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to send message')
       }
 
       const data = await response.json()
@@ -110,11 +113,18 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
         }
       }
 
+      setIsConnected(true)
+      setError(null)
+
     } catch (error) {
       console.error('Error sending message:', error)
       
       // Remove typing indicator
       setMessages(prev => prev.filter(msg => msg.type !== 'typing'))
+      
+      const errorMsg = error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.'
+      setError(errorMsg)
+      setIsConnected(false)
       
       const errorMessage: Message = {
         id: Date.now() + 1,
@@ -149,11 +159,35 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
             <span>Back to Itinerary</span>
           </button>
           
-          <div className="flex items-center space-x-2">
-            <Sparkles className="h-6 w-6 text-primary-600" />
-            <h1 className="text-xl font-semibold text-gray-900">TripMate Chat</h1>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="h-6 w-6 text-primary-600" />
+              <h1 className="text-xl font-semibold text-gray-900">TripMate Chat</h1>
+            </div>
+            
+            {/* Connection Status */}
+            <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs ${
+              isConnected 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                isConnected ? 'bg-green-500' : 'bg-red-500'
+              }`}></div>
+              <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+            </div>
           </div>
         </div>
+        
+        {/* Error Display */}
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 text-red-500">⚠️</div>
+              <span className="text-sm">{error}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Chat Container */}

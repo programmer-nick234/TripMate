@@ -17,6 +17,8 @@ export default function ItineraryWizard({ onItineraryGenerated }: ItineraryWizar
     constraints: ''
   })
   const [isGenerating, setIsGenerating] = useState(false)
+  const [errors, setErrors] = useState<{[key: string]: string}>({})
+  const [isValid, setIsValid] = useState(false)
 
   const interestOptions = [
     'Culture & History', 'Food & Dining', 'Nature & Outdoors', 
@@ -25,6 +27,49 @@ export default function ItineraryWizard({ onItineraryGenerated }: ItineraryWizar
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    validateField(field, value)
+  }
+
+  const validateField = (field: string, value: any) => {
+    const newErrors = { ...errors }
+    
+    switch (field) {
+      case 'destination':
+        if (!value || value.trim().length < 2) {
+          newErrors.destination = 'Please enter a valid destination'
+        } else {
+          delete newErrors.destination
+        }
+        break
+      case 'startDate':
+        if (!value) {
+          newErrors.startDate = 'Please select a start date'
+        } else if (formData.endDate && new Date(value) >= new Date(formData.endDate)) {
+          newErrors.startDate = 'Start date must be before end date'
+        } else {
+          delete newErrors.startDate
+        }
+        break
+      case 'endDate':
+        if (!value) {
+          newErrors.endDate = 'Please select an end date'
+        } else if (formData.startDate && new Date(value) <= new Date(formData.startDate)) {
+          newErrors.endDate = 'End date must be after start date'
+        } else {
+          delete newErrors.endDate
+        }
+        break
+      case 'budget':
+        if (!value || parseFloat(value) < 100) {
+          newErrors.budget = 'Please enter a budget of at least $100'
+        } else {
+          delete newErrors.budget
+        }
+        break
+    }
+    
+    setErrors(newErrors)
+    setIsValid(Object.keys(newErrors).length === 0 && formData.destination && formData.startDate && formData.endDate && formData.budget)
   }
 
   const handleInterestToggle = (interest: string) => {
@@ -91,9 +136,14 @@ export default function ItineraryWizard({ onItineraryGenerated }: ItineraryWizar
               value={formData.destination}
               onChange={(e) => handleInputChange('destination', e.target.value)}
               placeholder="e.g., Paris, Tokyo, New York"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                errors.destination ? 'border-red-500' : 'border-gray-300'
+              }`}
               required
             />
+            {errors.destination && (
+              <p className="mt-1 text-sm text-red-600">{errors.destination}</p>
+            )}
           </div>
 
           {/* Dates */}
@@ -107,9 +157,14 @@ export default function ItineraryWizard({ onItineraryGenerated }: ItineraryWizar
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => handleInputChange('startDate', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                  errors.startDate ? 'border-red-500' : 'border-gray-300'
+                }`}
                 required
               />
+              {errors.startDate && (
+                <p className="mt-1 text-sm text-red-600">{errors.startDate}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -120,9 +175,14 @@ export default function ItineraryWizard({ onItineraryGenerated }: ItineraryWizar
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => handleInputChange('endDate', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                  errors.endDate ? 'border-red-500' : 'border-gray-300'
+                }`}
                 required
               />
+              {errors.endDate && (
+                <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>
+              )}
             </div>
           </div>
 
@@ -137,11 +197,16 @@ export default function ItineraryWizard({ onItineraryGenerated }: ItineraryWizar
               value={formData.budget}
               onChange={(e) => handleInputChange('budget', e.target.value)}
               placeholder="e.g., 1500"
-              min="0"
+              min="100"
               step="50"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                errors.budget ? 'border-red-500' : 'border-gray-300'
+              }`}
               required
             />
+            {errors.budget && (
+              <p className="mt-1 text-sm text-red-600">{errors.budget}</p>
+            )}
           </div>
 
           {/* Interests */}
@@ -185,7 +250,7 @@ export default function ItineraryWizard({ onItineraryGenerated }: ItineraryWizar
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isGenerating}
+            disabled={isGenerating || !isValid}
             className="w-full bg-primary-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             {isGenerating ? (

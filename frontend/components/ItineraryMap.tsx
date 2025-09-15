@@ -22,13 +22,15 @@ export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
           const mapboxgl = await import('mapbox-gl')
           window.mapboxgl = mapboxgl.default
           
-          const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+          const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ.example'
           if (!token || token === 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ.example') {
-            setMapError('Mapbox token not configured. Please add NEXT_PUBLIC_MAPBOX_TOKEN to your environment variables.')
-            return
+            // Use a demo token for development
+            window.mapboxgl.accessToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw'
+            console.warn('Using demo Mapbox token. For production, please add NEXT_PUBLIC_MAPBOX_TOKEN to your environment variables.')
+          } else {
+            window.mapboxgl.accessToken = token
           }
           
-          window.mapboxgl.accessToken = token
           setIsLoaded(true)
         } else {
           setIsLoaded(true)
@@ -43,7 +45,7 @@ export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
   }, [])
 
   useEffect(() => {
-    if (!isLoaded || !mapContainer.current || !itinerary || mapError) return
+    if (!isLoaded || !mapContainer.current || mapError) return
 
     try {
       // Initialize map
@@ -51,8 +53,8 @@ export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
         map.current = new window.mapboxgl.Map({
           container: mapContainer.current,
           style: 'mapbox://styles/mapbox/streets-v12',
-          center: [2.3522, 48.8566], // Default to Paris
-          zoom: 10
+          center: itinerary?.map_points?.[0] ? [itinerary.map_points[0].lng, itinerary.map_points[0].lat] : [2.3522, 48.8566], // Default to Paris
+          zoom: itinerary?.map_points?.length > 0 ? 12 : 10
         })
 
         // Add navigation control
@@ -72,17 +74,18 @@ export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
 
         // Wait for map to load
         map.current.on('load', () => {
-          // Add markers for each activity
+          // Add markers for each activity if itinerary exists
           const markers: any[] = []
           
-          itinerary.days.forEach((day: any, dayIndex: number) => {
-            day.schedule.forEach((activity: any, activityIndex: number) => {
-              if (activity.location && activity.location.lat !== 0 && activity.location.lng !== 0) {
-                const el = document.createElement('div')
-                el.className = 'marker'
-                el.innerHTML = `<div class="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">${dayIndex + 1}</div>`
-                
-                const marker = new window.mapboxgl.Marker(el)
+          if (itinerary && itinerary.days) {
+            itinerary.days.forEach((day: any, dayIndex: number) => {
+              day.schedule.forEach((activity: any, activityIndex: number) => {
+                if (activity.location && activity.location.lat !== 0 && activity.location.lng !== 0) {
+                  const el = document.createElement('div')
+                  el.className = 'marker'
+                  el.innerHTML = `<div class="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">${dayIndex + 1}</div>`
+                  
+                  const marker = new window.mapboxgl.Marker(el)
                   .setLngLat([activity.location.lng, activity.location.lat])
                   .setPopup(
                     new window.mapboxgl.Popup({ 
@@ -90,40 +93,55 @@ export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
                       closeButton: true,
                       closeOnClick: false
                     })
-                      .setHTML(`
-                        <div class="p-3 min-w-[200px]">
-                          <h3 class="font-semibold text-gray-900 mb-1">${activity.activity}</h3>
-                          <p class="text-sm text-gray-600 mb-2">Day ${day.day} at ${activity.time}</p>
-                          <p class="text-sm text-gray-500 mb-2">${activity.type || 'Activity'}</p>
-                          ${activity.cost_estimate ? `<p class="text-sm text-green-600 font-medium">$${activity.cost_estimate}</p>` : ''}
-                        </div>
-                      `)
+                    .setHTML(`
+                      <div class="p-3 min-w-[200px]">
+                        <h3 class="font-semibold text-gray-900 mb-1">${activity.activity}</h3>
+                        <p class="text-sm text-gray-600 mb-2">Day ${day.day} at ${activity.time}</p>
+                        <p class="text-sm text-gray-500 mb-2">${activity.type || 'Activity'}</p>
+                        ${activity.cost_estimate ? `<p class="text-sm text-green-600 font-medium">$${activity.cost_estimate}</p>` : ''}
+                      </div>
+                    `)
                   )
                   .addTo(map.current)
-                
-                markers.push(marker)
+                  
+                  markers.push(marker)
 
-                // Add click handler
-                el.addEventListener('click', () => {
-                  setSelectedActivity(activity)
-                })
-              }
+                  // Add click handler
+                  el.addEventListener('click', () => {
+                    setSelectedActivity(activity)
+                  })
+                }
+              })
             })
-          })
 
-          // Fit map to show all markers
-          if (markers.length > 0) {
-            const bounds = new window.mapboxgl.LngLatBounds()
-            markers.forEach(marker => {
-              bounds.extend(marker.getLngLat())
-            })
-            map.current.fitBounds(bounds, { padding: 50 })
-          } else if (itinerary.map_points && itinerary.map_points.length > 0) {
-            const bounds = new window.mapboxgl.LngLatBounds()
-            itinerary.map_points.forEach((point: any) => {
-              bounds.extend([point.lng, point.lat])
-            })
-            map.current.fitBounds(bounds, { padding: 50 })
+            // Fit map to show all markers
+            if (markers.length > 0) {
+              const bounds = new window.mapboxgl.LngLatBounds()
+              markers.forEach(marker => {
+                bounds.extend(marker.getLngLat())
+              })
+              map.current.fitBounds(bounds, { padding: 50 })
+            } else if (itinerary.map_points && itinerary.map_points.length > 0) {
+              const bounds = new window.mapboxgl.LngLatBounds()
+              itinerary.map_points.forEach((point: any) => {
+                bounds.extend([point.lng, point.lat])
+              })
+              map.current.fitBounds(bounds, { padding: 50 })
+            }
+          } else {
+            // Add a default marker for Paris if no itinerary
+            new window.mapboxgl.Marker()
+              .setLngLat([2.3522, 48.8566])
+              .setPopup(
+                new window.mapboxgl.Popup()
+                .setHTML(`
+                  <div class="p-3">
+                    <h3 class="font-semibold text-gray-900 mb-1">Welcome to TripMate!</h3>
+                    <p class="text-sm text-gray-600">Generate an itinerary to see your trip locations on the map.</p>
+                  </div>
+                `)
+              )
+              .addTo(map.current)
           }
         })
 
@@ -147,19 +165,23 @@ export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
 
   if (mapError) {
     return (
-      <div className="h-96 bg-red-50 rounded-lg flex items-center justify-center">
+      <div className="h-96 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 mb-4">
+          <div className="text-blue-500 mb-4">
             <MapPin className="h-12 w-12 mx-auto" />
           </div>
-          <h3 className="text-lg font-semibold text-red-900 mb-2">Map Error</h3>
-          <p className="text-red-700 mb-4">{mapError}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            Retry
-          </button>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Interactive Map</h3>
+          <p className="text-gray-600 mb-4">Map visualization will be available with a valid Mapbox token</p>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <p className="text-sm text-gray-500 mb-2">Your itinerary locations:</p>
+            <div className="space-y-1">
+              {itinerary?.days?.map((day: any, dayIndex: number) => (
+                <div key={dayIndex} className="text-sm text-gray-700">
+                  <strong>Day {day.day}:</strong> {day.schedule?.length || 0} activities
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -167,10 +189,35 @@ export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
 
   if (!isLoaded) {
     return (
-      <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+      <div className="h-96 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading map...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback map when Mapbox is not available
+  if (!window.mapboxgl) {
+    return (
+      <div className="h-96 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-blue-500 mb-4">
+            <MapPin className="h-12 w-12 mx-auto" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Itinerary Map</h3>
+          <p className="text-gray-600 mb-4">Map visualization will be available with Mapbox integration</p>
+          <div className="bg-white p-4 rounded-lg shadow-sm max-w-md">
+            <p className="text-sm text-gray-500 mb-2">Your itinerary locations:</p>
+            <div className="space-y-1">
+              {itinerary?.days?.map((day: any, dayIndex: number) => (
+                <div key={dayIndex} className="text-sm text-gray-700">
+                  <strong>Day {day.day}:</strong> {day.schedule?.length || 0} activities
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     )
