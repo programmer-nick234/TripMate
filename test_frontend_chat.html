@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Frontend Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .chat-container { max-width: 600px; margin: 0 auto; }
+        .message { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .user { background: #e3f2fd; text-align: right; }
+        .assistant { background: #f5f5f5; }
+        .error { background: #ffebee; color: #c62828; }
+        input { width: 70%; padding: 10px; }
+        button { padding: 10px 20px; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>Test Frontend Chat System</h1>
+        <div id="messages"></div>
+        <form id="chatForm">
+            <input type="text" id="messageInput" placeholder="Type your message..." required>
+            <button type="submit">Send</button>
+        </form>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/api';
+        let sessionId = null;
+
+        // Start chat session
+        async function startChat() {
+            try {
+                const response = await fetch(`${API_URL}/chat/start/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itinerary_id: null })
+                });
+                
+                const data = await response.json();
+                sessionId = data.session_id;
+                addMessage('assistant', data.welcome_message);
+                updateStatus('Chat session started successfully');
+            } catch (error) {
+                addMessage('error', `Failed to start chat: ${error.message}`);
+            }
+        }
+
+        // Send message
+        async function sendMessage(message) {
+            if (!sessionId) {
+                addMessage('error', 'No active chat session');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/chat/send/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: message
+                    })
+                });
+                
+                const data = await response.json();
+                addMessage('assistant', data.response);
+                updateStatus('Message sent successfully');
+            } catch (error) {
+                addMessage('error', `Failed to send message: ${error.message}`);
+            }
+        }
+
+        // Add message to chat
+        function addMessage(type, content) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Update status
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Handle form submission
+        document.getElementById('chatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (message) {
+                addMessage('user', message);
+                input.value = '';
+                await sendMessage(message);
+            }
+        });
+
+        // Start chat when page loads
+        window.onload = startChat;
+    </script>
+</body>
+</html>

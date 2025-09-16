@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { MapPin, Clock, DollarSign, MessageCircle, ArrowLeft, Map, Calendar, Star } from 'lucide-react'
-import ItineraryMap from './ItineraryMap'
+import GoogleMapsMap from './GoogleMapsMap'
 
 interface ItineraryResultsProps {
   itinerary: any
@@ -248,7 +248,7 @@ export default function ItineraryResults({ itinerary, onStartChat, onBackToWizar
           )}
 
           {activeTab === 'map' && (
-            <ItineraryMap itinerary={currentItinerary} />
+            <GoogleMapsMap itinerary={currentItinerary} />
           )}
         </div>
       </div>

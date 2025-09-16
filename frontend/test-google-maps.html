@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Maps API Test</title>
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .error {
+            color: red;
+            background: #ffe6e6;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+            background: #e6ffe6;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Google Maps API Test</h1>
+        <p>This page tests if your Google Maps API key is working correctly.</p>
+        
+        <div id="status"></div>
+        <div id="map"></div>
+        
+        <h2>Instructions:</h2>
+        <ol>
+            <li>Replace 'YOUR_API_KEY_HERE' with your actual Google Maps API key</li>
+            <li>Open this file in your browser</li>
+            <li>You should see a map of Paris if everything is working</li>
+        </ol>
+    </div>
+
+    <script>
+        // Replace this with your actual API key
+        const API_KEY = 'YOUR_API_KEY_HERE';
+        
+        function initMap() {
+            const statusDiv = document.getElementById('status');
+            
+            if (API_KEY === 'YOUR_API_KEY_HERE') {
+                statusDiv.innerHTML = '<div class="error">❌ Please replace YOUR_API_KEY_HERE with your actual Google Maps API key</div>';
+                return;
+            }
+            
+            try {
+                const map = new google.maps.Map(document.getElementById('map'), {
+                    center: { lat: 48.8566, lng: 2.3522 }, // Paris
+                    zoom: 10
+                });
+                
+                // Add a marker
+                new google.maps.Marker({
+                    position: { lat: 48.8566, lng: 2.3522 },
+                    map: map,
+                    title: 'Paris, France'
+                });
+                
+                statusDiv.innerHTML = '<div class="success">✅ Google Maps API is working correctly!</div>';
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="error">❌ Error loading map: ' + error.message + '</div>';
+            }
+        }
+        
+        // Load Google Maps API
+        function loadGoogleMaps() {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=initMap`;
+            script.async = true;
+            script.defer = true;
+            script.onerror = function() {
+                document.getElementById('status').innerHTML = '<div class="error">❌ Failed to load Google Maps API. Check your API key and internet connection.</div>';
+            };
+            document.head.appendChild(script);
+        }
+        
+        // Start loading when page loads
+        window.onload = loadGoogleMaps;
+    </script>
+</body>
+</html>

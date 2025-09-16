@@ -53,6 +53,9 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
     setInputMessage('')
     setIsLoading(true)
 
+    console.log('Sending message:', userMessage)
+    console.log('Current messages before:', messages.length)
+
     // Add user message
     const newUserMessage: Message = {
       id: Date.now(),
@@ -60,7 +63,11 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
       content: userMessage,
       timestamp: new Date().toISOString()
     }
-    setMessages(prev => [...prev, newUserMessage])
+    setMessages(prev => {
+      const updated = [...prev, newUserMessage]
+      console.log('Messages after adding user message:', updated.length)
+      return updated
+    })
 
     // Add typing indicator
     const typingMessage: Message = {
@@ -90,6 +97,7 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
       }
 
       const data = await response.json()
+      console.log('Response data:', data)
       
       // Remove typing indicator
       setMessages(prev => prev.filter(msg => msg.type !== 'typing'))
@@ -102,13 +110,17 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
         timestamp: new Date().toISOString(),
         edit_applied: data.edit_applied
       }
-      setMessages(prev => [...prev, assistantMessage])
+      setMessages(prev => {
+        const updated = [...prev, assistantMessage]
+        console.log('Messages after adding assistant response:', updated.length)
+        return updated
+      })
 
       // Update itinerary if changes were made
       if (data.edit_applied && data.updated_itinerary) {
         setUpdatedItinerary(data.updated_itinerary)
         // Notify parent component of itinerary update
-        if (onBackToResults) {
+        if (typeof onBackToResults === 'function') {
           // You can add a callback here to update the parent component
         }
       }
@@ -179,15 +191,20 @@ export default function TripMateChat({ session, itinerary, onBackToResults }: Tr
           </div>
         </div>
         
-        {/* Error Display */}
-        {error && (
-          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 text-red-500">⚠️</div>
-              <span className="text-sm">{error}</span>
-            </div>
+      {/* Error Display */}
+      {error && (
+        <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 text-red-500">⚠️</div>
+            <span className="text-sm">{error}</span>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Debug Info */}
+      <div className="mt-2 text-xs text-gray-500">
+        Messages: {messages.length} | Loading: {isLoading.toString()} | Session: {session?.session_id?.substring(0, 8)}...
+      </div>
       </div>
 
       {/* Chat Container */}

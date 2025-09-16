@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { MapPin, Calendar, DollarSign, Heart, Sparkles } from 'lucide-react'
 import ItineraryWizard from '@/components/ItineraryWizard'
 import ItineraryResults from '@/components/ItineraryResults'
-import TripMateChat from '@/components/TripMateChat'
+import OptimizedChat from '@/components/OptimizedChat'
 
 export default function Home() {
   const [currentStep, setCurrentStep] = useState<'wizard' | 'results' | 'chat'>('wizard')
@@ -93,7 +93,7 @@ export default function Home() {
         )}
         
         {currentStep === 'chat' && chatSession && itinerary && (
-          <TripMateChat 
+          <OptimizedChat 
             session={chatSession}
             itinerary={itinerary}
             onBackToResults={handleBackToResults}

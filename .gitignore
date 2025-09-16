@@ -53,4 +53,5 @@ Thumbs.db
 # Build outputs
 frontend/.next/
 frontend/out/
+frontend/dist/
 backend/staticfiles/

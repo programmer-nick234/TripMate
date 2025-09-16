@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import 'mapbox-gl/dist/mapbox-gl.css'
+// Google Maps will be loaded dynamically
 
 const inter = Inter({ subsets: ['latin'] })
 

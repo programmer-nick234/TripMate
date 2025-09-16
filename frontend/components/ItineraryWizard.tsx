@@ -69,7 +69,7 @@ export default function ItineraryWizard({ onItineraryGenerated }: ItineraryWizar
     }
     
     setErrors(newErrors)
-    setIsValid(Object.keys(newErrors).length === 0 && formData.destination && formData.startDate && formData.endDate && formData.budget)
+    setIsValid(Object.keys(newErrors).length === 0 && !!formData.destination && !!formData.startDate && !!formData.endDate && !!formData.budget)
   }
 
   const handleInterestToggle = (interest: string) => {
